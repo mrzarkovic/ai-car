@@ -1,0 +1,49 @@
+html,
+body {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    text-align: center;
+    background-color: DarkSlateGray;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#simulation {
+    border: 2px solid #000;
+    background-color: lightgray;
+}
+
+#network {
+    border: 2px solid #000;
+    background-color: rgba(0, 0, 0, 0.6);
+}
+
+#controls {
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+}
+
+#controls button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 4px 8px;
+    margin: 4px 0;
+    border: 2px solid #000;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+#controls button:hover {
+    background-color: cadetblue;
+}
+#controls button:active {
+    background-color: darkcyan;
+}
