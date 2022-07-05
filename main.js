@@ -1,7 +1,7 @@
-"use strict";
+'use strict';
 
-const output = document.getElementById("text");
-const simulation = new Simulation(100, 5, "beograd", output, 1);
+const output = document.getElementById('text');
+const simulation = new Simulation(10, 5, 'zagreb', output, 6);
 simulation.start();
 
 // const subjectsCount = 100;

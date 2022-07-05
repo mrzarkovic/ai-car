@@ -1,15 +1,15 @@
-"use strict";
+'use strict';
 
 class Simulation {
-    static simulationCanvas = document.getElementById("simulation");
-    static networkCanvas = document.getElementById("network");
-    static simulationCtx = Simulation.simulationCanvas.getContext("2d");
-    static networkCtx = Simulation.networkCanvas.getContext("2d");
+    static simulationCanvas = document.getElementById('simulation');
+    static networkCanvas = document.getElementById('network');
+    static simulationCtx = Simulation.simulationCanvas.getContext('2d');
+    static networkCtx = Simulation.networkCanvas.getContext('2d');
 
     constructor(
         subjectsCount = 0,
         enemiesCount = 0,
-        seed = "",
+        seed = '',
         output = null,
         level = 1
     ) {
@@ -40,8 +40,9 @@ class Simulation {
 
     nextLevel() {
         this.save();
+        this.try = 0;
         this.level += 1;
-        this.restart();
+        this.retry();
     }
 
     start() {
@@ -176,7 +177,7 @@ class Simulation {
 
         Simulation.simulationCtx.restore();
         if (!this.healtyCars.length) {
-            this.output.innerHTML += "<h1>GAME OVER!</h1>";
+            this.output.innerHTML += '<h1>GAME OVER!</h1>';
             setTimeout(this.retry.bind(this), 500);
         } else if (enemiesLeft == 0) {
             this.output.innerHTML += `
@@ -200,10 +201,10 @@ class Simulation {
     }
 
     save() {
-        localStorage.setItem("bestBrain", JSON.stringify(this.bestCar.brain));
+        localStorage.setItem('bestBrain', JSON.stringify(this.bestCar.brain));
     }
 
-    static printLine(text = "") {
+    static printLine(text = '') {
         this.output.innerHTML = `<div>${text}</div>`;
     }
     static printBreak() {
@@ -230,7 +231,7 @@ class Simulation {
             (c) => [this.bestCar.id, this.parentCar.id].indexOf(c.id) == -1
         );
         for (let i = 0; i < regularCars.length; i++) {
-            regularCars[i].color = "#4514F7";
+            regularCars[i].color = '#4514F7';
             regularCars[i].draw(Simulation.simulationCtx);
         }
         Simulation.simulationCtx.globalAlpha = 1;
@@ -321,15 +322,18 @@ class Simulation {
 
     loadBestBrain() {
         this.parentCar = this.cars[0];
-        this.parentCar.color = "#1498F7";
+        this.parentCar.color = '#1498F7';
 
-        if (localStorage.getItem("bestBrain")) {
+        if (localStorage.getItem('bestBrain')) {
             for (let i = 0; i < this.cars.length; i++) {
                 this.cars[i].brain = JSON.parse(
-                    localStorage.getItem("bestBrain")
+                    localStorage.getItem('bestBrain')
                 );
                 if (i != 0) {
-                    NeuralNetwork.mutate(this.cars[i].brain, 0.1);
+                    NeuralNetwork.mutate(
+                        this.cars[i].brain,
+                        0.1 + this.try / 100
+                    );
                 }
             }
         }
@@ -345,11 +349,11 @@ class Simulation {
         );
     }
 
-    static getSeed(phrase = "", size = 0) {
+    static getSeed(phrase = '', size = 0) {
         const fullPharse = new Array(Math.ceil(size / 3) + 1)
             .join(phrase)
             .slice(0, size);
-        let seed = "";
+        let seed = '';
         for (let i = 0; i < fullPharse.length; i++) {
             seed += fullPharse.charCodeAt(i) % 10;
         }
