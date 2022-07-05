@@ -103,13 +103,13 @@ class Sensor {
     draw(ctx) {
         for (let i = 0; i < this.rayCount; i++) {
             let end = this.rays[i][1];
-            let color = "limegreen";
+            let color = "#8AFFB5";
             if (this.readings[i]) {
                 end = this.readings[i];
                 if (this.readings[i].offset < 0.2) {
-                    color = "red";
+                    color = "#FA8437";
                 } else if (this.readings[i].offset < 0.5) {
-                    color = "yellow";
+                    color = "#EBE159";
                 }
             }
             ctx.setLineDash([0, 0]);
@@ -122,8 +122,8 @@ class Sensor {
 
             ctx.setLineDash([5, 3]);
             ctx.beginPath();
-            ctx.lineWidth = 1;
-            ctx.strokeStyle = "gray";
+            ctx.lineWidth = 0.5;
+            ctx.strokeStyle = "#373638";
             ctx.moveTo(end.x, end.y);
             ctx.lineTo(this.rays[i][1].x, this.rays[i][1].y);
             ctx.stroke();

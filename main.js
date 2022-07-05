@@ -1,7 +1,8 @@
 "use strict";
 
-const simulation = new Simulation(100, 10, "zagreb");
-simulation.animate();
+const output = document.getElementById("text");
+const simulation = new Simulation(100, 5, "beograd", output, 1);
+simulation.start();
 
 // const subjectsCount = 100;
 // const enemiesCount = 10;

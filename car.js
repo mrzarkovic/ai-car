@@ -1,6 +1,7 @@
 class Car {
     constructor(x, y, width, height, maxSpeed = 100, controlType, color) {
-        this.id = Date.now();
+        this.id = Math.floor(Math.random() * Date.now());
+
         this.x = x;
         this.y = y;
         this.width = width;
@@ -210,7 +211,7 @@ class Car {
                     50,
                     80,
                     "DUMMY",
-                    "red"
+                    "#F76345"
                 )
             );
         }

@@ -59,5 +59,5 @@ function getSeed(phrase = "", size = 0) {
 }
 
 function isOutOfScreen(y, screenHeight, centerY) {
-    return y - screenHeight / 2 > centerY;
+    return y - screenHeight * 0.3 > centerY;
 }

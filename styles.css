@@ -4,9 +4,10 @@ body {
 }
 
 body {
+    font-family: "Franklin Gothic Medium", "Arial Narrow", Arial, sans-serif;
     margin: 0;
     text-align: center;
-    background-color: DarkSlateGray;
+    background-color: #818084;
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -15,7 +16,7 @@ body {
 
 #simulation {
     border: 2px solid #000;
-    background-color: lightgray;
+    background-color: #e0dfe6;
 }
 
 #network {
@@ -24,10 +25,15 @@ body {
 }
 
 #controls {
+    height: 100%;
+    width: 150px;
+    word-break: break-all;
     padding: 16px;
+    box-sizing: border-box;
     display: flex;
     align-items: center;
     flex-direction: column;
+    justify-content: space-between;
 }
 
 #controls button {
@@ -44,6 +50,12 @@ body {
 #controls button:hover {
     background-color: cadetblue;
 }
+
 #controls button:active {
     background-color: darkcyan;
+}
+
+#text {
+    font-size: 18px;
+    margin-bottom: 16px;
 }

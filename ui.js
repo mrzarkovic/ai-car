@@ -1,10 +1,7 @@
 const saveButton = document.getElementById("save");
 saveButton.addEventListener("click", () => {
-    save();
+    simulation.save();
 });
-function save() {
-    localStorage.setItem("bestBrain", JSON.stringify(simulation.bestCar.brain));
-}
 
 const deleteButton = document.getElementById("delete");
 deleteButton.addEventListener("click", () => {
@@ -13,3 +10,13 @@ deleteButton.addEventListener("click", () => {
 function remove() {
     localStorage.removeItem("bestBrain");
 }
+
+const restartButton = document.getElementById("restart");
+restartButton.addEventListener("click", () => {
+    simulation.restart();
+});
+
+const nextButton = document.getElementById("next");
+nextButton.addEventListener("click", () => {
+    simulation.nextLevel();
+});
