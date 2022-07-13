@@ -1,30 +1,38 @@
-'use strict';
+"use strict";
 
 class Simulation {
-    static simulationCanvas = document.getElementById('simulation');
-    static networkCanvas = document.getElementById('network');
-    static simulationCtx = Simulation.simulationCanvas.getContext('2d');
-    static networkCtx = Simulation.networkCanvas.getContext('2d');
+    static simulationCanvas = document.getElementById("simulation");
+    static networkCanvas = document.getElementById("network");
+    static simulationCtx = Simulation.simulationCanvas.getContext("2d");
+    static networkCtx = Simulation.networkCanvas.getContext("2d");
 
     constructor(
         subjectsCount = 0,
         enemiesCount = 0,
-        seed = '',
+        seedName = "",
         output = null,
-        level = 1
+        level = 1,
+        tryCount = 0,
+        brainName = ""
     ) {
         Simulation.simulationCanvas.width = 260;
-        Simulation.networkCanvas.width = 600;
+        Simulation.networkCanvas.width = 400;
+        Simulation.networkCanvas.height = 400;
 
+        this.fpsLimit = 60;
+        this.fpsInterval = 1000 / this.fpsLimit;
+        this.frameStartTime = 0;
+
+        this.brainName = brainName;
         this.level = level;
-        this.try = 0;
+        this.try = tryCount;
         this.output = output;
-        this.seed = Simulation.getSeed(seed, 100);
+        this.seedName = seedName;
+        this.seed = Simulation.getSeed(this.seedName, 100);
         this.subjectsCount = subjectsCount;
         this.enemiesCount = enemiesCount;
         this.totalEnemies = 0;
-        this.enemiesOvertook = [];
-        this.lastOvertake = 0;
+
         this.road = null;
         this.cars = [];
         this.healtyCars = [];
@@ -32,14 +40,18 @@ class Simulation {
         this.traffic = [];
         this.startTime = null;
         this.stop = true;
+        this.times = [];
+        this.fps = 0;
+        this.stats = {};
+        this.mutation = 0;
 
         this.parentCar = null;
         this.onEndCallback = null;
         this.animationFrameId = null;
     }
 
-    nextLevel() {
-        this.save();
+    nextLevel(bestCar) {
+        this.save(bestCar);
         this.try = 0;
         this.level += 1;
         this.retry();
@@ -47,10 +59,12 @@ class Simulation {
 
     start() {
         this.initialize();
+        this.frameStartTime = performance.now();
         this.animate();
     }
 
     retry() {
+        this.try += 1;
         this.destroy();
         this.start();
     }
@@ -63,7 +77,6 @@ class Simulation {
     }
 
     initialize() {
-        this.try += 1;
         this.stop = false;
         this.road = new Road(
             Simulation.simulationCanvas.width / 2,
@@ -79,6 +92,7 @@ class Simulation {
             this.road,
             this.seed
         );
+        this.mutation = 0.1 / this.level + this.try / 1000;
 
         this.loadBestBrain();
     }
@@ -87,14 +101,14 @@ class Simulation {
         cancelAnimationFrame(this.animationFrameId);
         this.startTime = null;
         this.animationFrameId = null;
-        this.enemiesOvertook = [];
-        this.lastOvertake = 0;
+
         this.road = null;
         this.cars = [];
         this.healtyCars = [];
         this.bestCar = null;
         this.traffic = [];
         this.stop = true;
+        this.stats = {};
 
         this.parentCar = null;
         this.onEndCallback = null;
@@ -121,7 +135,10 @@ class Simulation {
         this.onEndCallback = callback;
     }
 
-    animate(time = 0) {
+    animate() {
+        const time = performance.now();
+        const elapsed = time - this.frameStartTime;
+
         if (!this.startTime) {
             this.startTime = time;
         }
@@ -129,55 +146,78 @@ class Simulation {
         if (this.stop) {
             return;
         }
-        Simulation.simulationCanvas.height = window.innerHeight;
-        Simulation.networkCanvas.height = window.innerHeight;
 
         this.healtyCars = this.cars.filter((c) => !c.damaged);
-        const enemiesLeft = this.totalEnemies - this.enemiesOvertook.length;
-        this.output.innerHTML = `
-            <div>
-                Generation:<br />${this.level - 1} 
-            </div>
-            <div>
-                Iteration:<br />${this.try} 
-            </div>
-            <br />
-            <div>
-                Speed:<br />${Math.round(
-                    Math.abs(this.bestCar.speed) / 10
-                )} km/h
-            </div>
-            <br />
-            <div>
-                Population:<br />${this.healtyCars.length}/${this.subjectsCount}
-            </div>
-            <br />
-            <div>
-                Enemies:<br />${enemiesLeft}/${this.totalEnemies}
-            </div>
-        `;
+
         this.bestCar = this.getBestCar();
 
-        if (animationTime / 1000 > 5) {
-            this.penalizeStalling(animationTime);
+        this.updateTraffic(animationTime);
+        this.updateCars(animationTime);
+
+        const enemiesLeft =
+            this.totalEnemies - this.stats[this.bestCar.id].overtook.length;
+
+        if (elapsed > this.fpsInterval) {
+            this.frameStartTime = time - (elapsed % this.fpsInterval);
+
+            while (this.times.length > 0 && this.times[0] <= time - 1000) {
+                this.times.shift();
+            }
+
+            this.times.push(time);
+            this.fps = this.times.length;
+
+            Simulation.simulationCanvas.height = window.innerHeight;
+
+            Simulation.simulationCtx.save();
+
+            this.moveCamera();
+            this.road.draw(Simulation.simulationCtx);
+
+            this.drawNetwork(animationTime);
+            this.drawTraffic();
+            this.drawCars();
+            this.drawBestCar();
+            this.drawParentCar();
+
+            Simulation.simulationCtx.restore();
         }
 
-        Simulation.simulationCtx.save();
+        const animationSeconds = Math.round(time / 1000);
+        const hours = Math.floor(animationSeconds / 3600);
+        const totalSeconds = animationSeconds % 3600;
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
 
-        this.moveCamera();
-        this.road.draw(Simulation.simulationCtx);
-        this.updateTraffic(animationTime);
-        this.updateCars();
+        this.output.innerHTML = `
+                <div>
+                    Generation: ${this.level - 1} 
+                </div>
+                <div>
+                    Iteration: ${this.try} 
+                </div>
+                <div>
+                    Mutation: ${(this.mutation * 100).toFixed(2)}% 
+                </div>
+                <div>
+                    Speed: ${Math.round(
+                        Math.abs(this.bestCar.speed) * 100
+                    )} km/h
+                </div>
+                <div>
+                    Population: ${this.healtyCars.length}/${this.subjectsCount}
+                </div>
+                <div>
+                    Enemies: ${enemiesLeft}/${this.totalEnemies}
+                </div>
+                <div>FPS: ${this.fps}</div>
+                <div>Time: ${("0" + hours).slice(-2)}:${("0" + minutes).slice(
+            -2
+        )}:${("0" + seconds).slice(-2)}</div>
+            `;
 
-        this.drawNetwork(animationTime);
-        this.drawTraffic();
-        this.drawCars();
-        this.drawBestCar();
-        this.drawParentCar();
-
-        Simulation.simulationCtx.restore();
         if (!this.healtyCars.length) {
-            this.output.innerHTML += '<h1>GAME OVER!</h1>';
+            this.output.innerHTML += "<h1>GAME OVER!</h1>";
             setTimeout(this.retry.bind(this), 500);
         } else if (enemiesLeft == 0) {
             this.output.innerHTML += `
@@ -189,9 +229,9 @@ class Simulation {
             `;
             setTimeout(
                 function () {
-                    this.nextLevel();
+                    this.nextLevel(this.bestCar);
                 }.bind(this),
-                500
+                1500
             );
         } else {
             this.animationFrameId = requestAnimationFrame(
@@ -200,15 +240,13 @@ class Simulation {
         }
     }
 
-    save() {
-        localStorage.setItem('bestBrain', JSON.stringify(this.bestCar.brain));
-    }
-
-    static printLine(text = '') {
-        this.output.innerHTML = `<div>${text}</div>`;
-    }
-    static printBreak() {
-        this.output.innerHTML = `<br />`;
+    save(bestCar) {
+        this.brainName = `bestBrain-${bestCar.id}-${this.seedName}-${this.level}`;
+        localStorage.setItem(
+            this.brainName,
+            JSON.stringify({ brain: bestCar.brain, id: bestCar.id })
+        );
+        console.log("saved", this.brainName);
     }
 
     drawParentCar() {
@@ -220,7 +258,7 @@ class Simulation {
 
     drawBestCar() {
         if (this.bestCar && this.bestCar.id != this.parentCar.id) {
-            // this.bestCar.color = "#F7E014";
+            this.bestCar.color = "#F7E014";
             this.bestCar.draw(Simulation.simulationCtx, true);
         }
     }
@@ -230,9 +268,13 @@ class Simulation {
         const regularCars = this.cars.filter(
             (c) => [this.bestCar.id, this.parentCar.id].indexOf(c.id) == -1
         );
+        let carsDrawn = 0;
         for (let i = 0; i < regularCars.length; i++) {
-            regularCars[i].color = '#4514F7';
-            regularCars[i].draw(Simulation.simulationCtx);
+            if (carsDrawn < 100 && this.carOnScreen(regularCars[i])) {
+                carsDrawn++;
+                regularCars[i].color = "#4514F7";
+                regularCars[i].draw(Simulation.simulationCtx);
+            }
         }
         Simulation.simulationCtx.globalAlpha = 1;
     }
@@ -250,21 +292,43 @@ class Simulation {
         }
     }
 
-    updateCars() {
+    updateCars(animationTime) {
         for (let i = 0; i < this.cars.length; i++) {
-            if (this.cars[i].damaged) {
-                if (
-                    this.bestCar &&
-                    isOutOfScreen(
-                        this.cars[i].y - this.cars[i].height * 0.75,
-                        Simulation.simulationCanvas.height,
-                        this.bestCar.y
-                    )
-                ) {
+            const car = this.cars[i];
+            if (car.damaged) {
+                if (this.bestCar && car.y < this.bottomOfScreen()) {
                     this.cars.splice(i, 1);
                 }
             } else {
-                this.cars[i].update(this.road.borders, this.traffic);
+                this.updateOvertakes(car, animationTime);
+                car.update(this.road.borders, this.traffic);
+            }
+        }
+    }
+
+    updateOvertakes(car, animationTime) {
+        if (!this.stats[car.id]) {
+            this.stats[car.id] = { overtook: [], lastOvertake: animationTime };
+        }
+
+        if (
+            animationTime / 1000 > 5 &&
+            animationTime - this.stats[car.id].lastOvertake >
+                lerp(10, 5000, car.speed / car.maxSpeed)
+        ) {
+            car.damaged = true;
+        } else {
+            const carBottom = car.y + car.height * 0.3;
+            for (let i = 0; i < this.traffic.length; i++) {
+                const enemy = this.traffic[i];
+                const enemyTop = enemy.y - enemy.height;
+                if (
+                    carBottom < enemyTop &&
+                    this.stats[car.id].overtook.indexOf(enemy.id) == -1
+                ) {
+                    this.stats[car.id].overtook.push(enemy.id);
+                    this.stats[car.id].lastOvertake = animationTime;
+                }
             }
         }
     }
@@ -276,10 +340,6 @@ class Simulation {
             const bestCarBottom = this.bestCar.y + this.bestCar.height * 0.3;
 
             if (this.bestCar && enemyTop > bestCarBottom) {
-                if (this.enemiesOvertook.indexOf(this.traffic[i].id) == -1) {
-                    this.enemiesOvertook.push(this.traffic[i].id);
-                    this.lastOvertake = time;
-                }
                 if (
                     isOutOfScreen(
                         this.traffic[i].y - this.traffic[i].height * 0.75,
@@ -302,38 +362,20 @@ class Simulation {
         }
     }
 
-    penalizeStalling(time) {
-        if (
-            this.traffic.length &&
-            this.bestCar &&
-            time - this.lastOvertake >
-                lerp(
-                    10,
-                    5000,
-                    this.bestCar.speed
-                        ? this.bestCar.maxSpeed / this.bestCar.speed
-                        : 0
-                )
-        ) {
-            this.bestCar.damaged = true;
-            this.lastOvertake = time;
-        }
-    }
-
     loadBestBrain() {
         this.parentCar = this.cars[0];
-        this.parentCar.color = '#1498F7';
+        this.parentCar.color = "#1498F7";
+        const oldBestCarStats = localStorage.getItem(this.brainName);
 
-        if (localStorage.getItem('bestBrain')) {
+        if (this.brainName && oldBestCarStats) {
+            console.log("loaded", this.brainName);
+
             for (let i = 0; i < this.cars.length; i++) {
-                this.cars[i].brain = JSON.parse(
-                    localStorage.getItem('bestBrain')
-                );
+                this.cars[i].brain = JSON.parse(oldBestCarStats).brain;
                 if (i != 0) {
-                    NeuralNetwork.mutate(
-                        this.cars[i].brain,
-                        0.1 + this.try / 100
-                    );
+                    NeuralNetwork.mutate(this.cars[i].brain, this.mutation);
+                } else {
+                    this.cars[i].id = JSON.parse(oldBestCarStats).id;
                 }
             }
         }
@@ -349,15 +391,27 @@ class Simulation {
         );
     }
 
-    static getSeed(phrase = '', size = 0) {
+    static getSeed(phrase = "", size = 0) {
         const fullPharse = new Array(Math.ceil(size / 3) + 1)
             .join(phrase)
             .slice(0, size);
-        let seed = '';
+        let seed = "";
         for (let i = 0; i < fullPharse.length; i++) {
             seed += fullPharse.charCodeAt(i) % 10;
         }
 
         return seed;
+    }
+
+    carOnScreen(car) {
+        return car.y < this.topOfScreen() && car.y > this.bottomOfScreen();
+    }
+
+    topOfScreen() {
+        return this.bestCar.y + Simulation.simulationCanvas.height * 0.7;
+    }
+
+    bottomOfScreen() {
+        return this.bestCar.y - Simulation.simulationCanvas.height * 0.3;
     }
 }
